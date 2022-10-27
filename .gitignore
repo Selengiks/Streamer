@@ -2,6 +2,7 @@
 /.idea
 /.excluded
 config_data_priv.py
-log*
+logs/
+test*
 __pycache__
 nohup.out

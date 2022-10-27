@@ -18,16 +18,16 @@ async def errors(update: types.Update, error: Exception):
     return True
 
 
-async def on_startup(dp: Dispatcher):
-    botinfo = await dp.bot.me
-    logger.info(f"Бот {botinfo.full_name} [@{botinfo.username}] запущен")
+async def on_startup(disp: Dispatcher):
+    botinfo = await disp.bot.me
+    logger.info(f"Bot {botinfo.full_name} [@{botinfo.username}] has been started")
 
 
-async def on_shutdown(dp: Dispatcher):
-    logger.warning('Выключаюсь..')
+async def on_shutdown():
+    logger.warning('Shutdown..')
     await bot.close()
 
 
 if __name__ == '__main__':
-    logger.info("Режим бота - POLLING")
+    logger.info("Bot mode - POLLING")
     executor.start_polling(dp, on_startup=on_startup, on_shutdown=on_shutdown, skip_updates=True)

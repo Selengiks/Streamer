@@ -1,1 +1,1 @@
-from bot import commands
+from bot import logic

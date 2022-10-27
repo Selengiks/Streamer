@@ -1,5 +1,3 @@
-import os
-
 from loguru import logger
 from support import loggeru
 import config_data_priv
@@ -14,6 +12,6 @@ PROXIES = config_data_priv.PROXIES
 # local_server_url = "http://127.0.0.1:8888"
 local_server_url = None
 
-admins = ['290522978']  # Глобальные админы
+admins = ['290522978']  # Global admins
 
 GLOBAL_DELAY = .09

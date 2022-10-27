@@ -1,2 +1,2 @@
-BOT_TOKEN = ""  # Токен бота
-PROXIES = {}  # http или https прокси
+BOT_TOKEN = ""  # Bot token
+PROXIES = {}  # http or https proxies (if needed)
