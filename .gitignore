@@ -1,0 +1,7 @@
+/venv
+/.idea
+/.excluded
+config_data_priv.py
+log*
+__pycache__
+nohup.out
