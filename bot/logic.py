@@ -5,10 +5,12 @@ from support.bots import dp, bot
 from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters.state import State, StatesGroup
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+import bot.crm_api as capi
 
 logger.debug("Bot commands module loaded")
 
 admin = cfg.admins
+
 
 """====================    FSM     ===================="""
 
@@ -47,15 +49,11 @@ class FSM(StatesGroup):
     allow_edit_org_step_user = State()
     allow_edit_org_step_app = State()
 
-    """Deny organic edit logic"""
-    deny_edit_org_step_user = State()
-    deny_edit_org_step_app = State()
-
     """Check user visibility logic"""
     check_user_visib_step_user = State()
 
 
-"""====================    Keyboard     ===================="""
+"""====================    MENU Keyboard     ===================="""
 
 add_user_key = InlineKeyboardButton('Add user', callback_data='/add_user')
 del_user_key = InlineKeyboardButton('Delete user', callback_data='/del_user')
@@ -64,18 +62,22 @@ add_user_camp_key = InlineKeyboardButton('Add user campaign', callback_data='/ad
 open_org_key = InlineKeyboardButton('Open organic', callback_data='/open_org')
 close_org_key = InlineKeyboardButton('Close organic', callback_data='/close_org')
 allow_org_edit_key = InlineKeyboardButton('Accept organic edit', callback_data='/a_org_edit')
-deny_org_edit_key = InlineKeyboardButton('Deny organic edit', callback_data='/d_org_edit')
 open_camp_visib_key = InlineKeyboardButton('Open campaign visibility', callback_data='/o_camp_vis')
 close_camp_visib_key = InlineKeyboardButton('Close campaign visibility', callback_data='/c_camp_vis')
 check_user_visib_key = InlineKeyboardButton('Check user visibility', callback_data='/check_user_vis')
 keyboard = InlineKeyboardMarkup(row_width=2).add(add_user_key, del_user_key, add_user_sub_key, add_user_camp_key,
-                                                 open_org_key, close_org_key, allow_org_edit_key, deny_org_edit_key,
-                                                 open_camp_visib_key, close_camp_visib_key, check_user_visib_key)
+                                                 open_org_key, close_org_key, allow_org_edit_key, open_camp_visib_key,
+                                                 close_camp_visib_key, check_user_visib_key)
 
 help_key = InlineKeyboardButton('Help', callback_data='/help')
 keyboard.add(help_key)
 
+
 """====================    Main body     ===================="""
+
+
+logins = []
+bundles = []
 
 
 @dp.callback_query_handler(
@@ -100,7 +102,8 @@ async def process_callback_commands(callback_query: types.CallbackQuery):
         await bot.answer_callback_query(callback_query.id, text='Not implemented yet!', show_alert=True)
 
     elif code == '/open_org':
-        await bot.answer_callback_query(callback_query.id, text='Not implemented yet!', show_alert=True)
+        await FSM.open_org_step_user.set()
+        await bot.send_message(callback_query.from_user.id, text="Enter to whom to open")
 
     elif code == '/close_org':
         await bot.answer_callback_query(callback_query.id, text='Not implemented yet!', show_alert=True)
@@ -129,6 +132,46 @@ async def process_callback_commands(callback_query: types.CallbackQuery):
 
 
 """====================    Bot control layer     ===================="""
+
+
+@dp.message_handler(
+        user_id=admin,
+        chat_type=[types.ChatType.PRIVATE],
+        state=FSM.open_org_step_user
+)
+async def open_org_step_user(self: types.Message, state: FSMContext):
+
+    try:
+        logger.info("open_org_step_user")
+        for i in self.text.split('\n'):
+            logins.append(i)
+        await FSM.open_org_step_app.set()
+        await self.answer(f'Enter what to open')
+
+    except(Exception,):
+        result = f'{open_org_step_user.__name__}, something get wrong!'
+        logger.info(result)
+        await self.reply(result)
+
+
+@dp.message_handler(
+    user_id=admin,
+    chat_type=[types.ChatType.PRIVATE],
+    state=FSM.open_org_step_app
+)
+async def open_org_step_app(self: types.Message, state: FSMContext):
+
+    try:
+        logger.info("open_org_step_app")
+        for i in self.text.split('\n'):
+            bundles.append(i)
+        capi.open_org(logins, bundles)
+        await FSM.primary.set()
+
+    except(Exception,):
+        result = f'{open_org_step_app.__name__}, something get wrong!'
+        logger.info(result)
+        await self.reply(result)
 
 
 @dp.message_handler(
