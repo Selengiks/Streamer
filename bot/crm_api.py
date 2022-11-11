@@ -1,3 +1,4 @@
+import json
 from collections import OrderedDict
 
 import requests
@@ -5,6 +6,11 @@ from loguru import logger
 import config as cfg
 
 URL = cfg.SCRIPT_API
+HEADER = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36 OPR/92.0.0.0",
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
+THEADER = {"Api-Key": cfg.API_TOKEN}
 
 
 def get_user_id(logins):
@@ -19,7 +25,6 @@ def get_user_id(logins):
                 data.append(v['id'])
 
     result = {'response': response, 'data': data}
-
     return result
 
 
@@ -32,11 +37,26 @@ def get_campaign_id(bundles):
     for k, v in bundledict.items():
         for i in bundles:
 
-            if i == v['name']:
+            if f'ORG {i}' in v['name']:
                 data.append(v['id'])
 
     result = {'response': response, 'data': data}
+    return result
 
+
+def get_app_id(bundles):
+    get_apps_url = cfg.DOMAIN
+    response = requests.get(f'{get_apps_url}traffic_sources', headers=THEADER)
+    appsdict = {item['id']: item for item in response.json()}
+    data = []
+
+    for k, v in appsdict.items():
+        for i in bundles:
+
+            if i in v['name']:
+                data.append(v['id'])
+
+    result = {'response': response, 'data': data}
     return result
 
 
@@ -57,46 +77,37 @@ def add_camp(login, bundle, sub):
 
 
 def open_org(logins, bundles):
-    data = [
-        {
-            "add_specific_visibility": "",
-            "campaigns": get_campaign_id(bundles),  # idшки компаний что открыть
-            "keitaro_master": get_user_id(logins)  # масив айдишек юзеров кому открыть
-        }
-    ]
-    # result = requests.post(URL, data=data)
-    print(data)
+    data = {
+        "add_specific_visibility": "Готово",
+        "campaigns[]": get_campaign_id(bundles).get('data'),
+        "keitaro_master[]": get_user_id(logins).get('data')
+    }
+
+    result = requests.post(URL, data=data, headers=HEADER)
+    return result
 
 
 def close_org(logins, bundles):
-    data = [
-        {
-            "delete_specific_visibility": "",
-            "campaigns": get_campaign_id(bundles),  # idшки компаний что открыть
-            "keitaro_master": get_user_id(logins)  # масив айдишек юзеров кому открыть
-        }
-    ]
-    # result = requests.post(URL, data=data)
-    print(data)
+    data = {
+        "delete_specific_visibility": "Готово",
+        "campaigns[]": get_campaign_id(bundles).get('data'),
+        "keitaro_master[]": get_user_id(logins).get('data')
+    }
+
+    result = requests.post(URL, data=data, headers=HEADER)
+    return result
 
 
 def a_edit_org(logins, bundles):
-    data = [
-        {
-            "allow_edit_organic": "",
-            "app": get_campaign_id(bundles),  # бандлы прил где разрешить редачить органику
-            "keitaro": get_user_id(logins)  # айдишка юзера кому открыть
-        }
-    ]
-    # result = requests.post(URL, data=data)
-    print(data)
+    data = {
+        "allow_edit_organic": "",
+        "app[]": get_app_id(bundles).get('data'),
+        "keitaro": get_user_id(logins).get('data')
+    }
+
+    result = requests.post(URL, data=data, headers=HEADER)
+    return result
 
 
 def check_visibility(login):
     pass
-
-
-test = ["22bet", "admin", "Aleksej Grund"]
-test2 = ["", ""]
-get_user_id(test)
-get_campaign_id(test2)

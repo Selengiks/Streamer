@@ -38,16 +38,16 @@ class FSM(StatesGroup):
     add_camp_step_sub = State()
 
     """Open organic logic"""
-    open_org_step_user = State()
-    open_org_step_app = State()
+    open_org_step_user = State()  #
+    open_org_step_app = State()  #
 
     """Close organic logic"""
-    close_org_step_user = State()
-    close_org_step_app = State()
+    close_org_step_user = State()  #[
+    close_org_step_app = State()  #
 
     "Allow organic edit logic"
-    allow_edit_org_step_user = State()
-    allow_edit_org_step_app = State()
+    allow_edit_org_step_user = State()  #
+    allow_edit_org_step_app = State()  #
 
     """Check user visibility logic"""
     check_user_visib_step_user = State()
@@ -106,13 +106,12 @@ async def process_callback_commands(callback_query: types.CallbackQuery):
         await bot.send_message(callback_query.from_user.id, text="Enter to whom to open")
 
     elif code == '/close_org':
-        await bot.answer_callback_query(callback_query.id, text='Not implemented yet!', show_alert=True)
+        await FSM.close_org_step_user.set()
+        await bot.send_message(callback_query.from_user.id, text="Enter to whom to close")
 
     elif code == '/a_org_edit':
-        await bot.answer_callback_query(callback_query.id, text='Not implemented yet!', show_alert=True)
-
-    elif code == '/d_org_edit':
-        await bot.answer_callback_query(callback_query.id, text='Not implemented yet!', show_alert=True)
+        await FSM.allow_edit_org_step_user.set()
+        await bot.send_message(callback_query.from_user.id, text="Enter to whom to allow")
 
     elif code == '/o_camp_vis':
         await bot.answer_callback_query(callback_query.id, text='Not implemented yet!', show_alert=True)
@@ -165,13 +164,117 @@ async def open_org_step_app(self: types.Message, state: FSMContext):
         logger.info("open_org_step_app")
         for i in self.text.split('\n'):
             bundles.append(i)
-        capi.open_org(logins, bundles)
+        result = capi.open_org(logins, bundles)
+        logins.clear()
+        bundles.clear()
         await FSM.primary.set()
+        if result.ok:
+            await self.reply(f'Response code {result.status_code}, successful.')
+            with open("test.txt", "w", encoding="utf-8") as file:
+                file.write(result.text)
+        else:
+            await self.reply(f'Response code {result.status_code}, unsuccessful!')
 
     except(Exception,):
-        result = f'{open_org_step_app.__name__}, something get wrong!'
+        out = f'{open_org_step_app.__name__}, something get wrong!\n' \
+                 f'Raised "{Exception}" error!'
+        logger.info(out)
+        await self.reply(out)
+
+
+@dp.message_handler(
+        user_id=admin,
+        chat_type=[types.ChatType.PRIVATE],
+        state=FSM.close_org_step_user
+)
+async def close_org_step_user(self: types.Message, state: FSMContext):
+
+    try:
+        logger.info("close_org_step_user")
+        for i in self.text.split('\n'):
+            logins.append(i)
+        await FSM.close_org_step_app.set()
+        await self.answer(f'Enter what to close')
+
+    except(Exception,):
+        result = f'close_org_step_user, something get wrong!'
         logger.info(result)
         await self.reply(result)
+
+
+@dp.message_handler(
+    user_id=admin,
+    chat_type=[types.ChatType.PRIVATE],
+    state=FSM.close_org_step_app
+)
+async def close_org_step_app(self: types.Message, state: FSMContext):
+
+    try:
+        logger.info("close_org_step_app")
+        for i in self.text.split('\n'):
+            bundles.append(i)
+        result = capi.close_org(logins, bundles)
+        logins.clear()
+        bundles.clear()
+        await FSM.primary.set()
+        if result.ok:
+            await self.reply(f'Response code {result.status_code}, successful.')
+            with open("test.txt", "w", encoding="utf-8") as file:
+                file.write(result.text)
+        else:
+            await self.reply(f'Response code {result.status_code}, unsuccessful!')
+
+    except(Exception,):
+        out = f'close_org_step_app, something get wrong!\nRaised "{Exception}" error!'
+        logger.info(out)
+        await self.reply(out)
+
+
+@dp.message_handler(
+    user_id=admin,
+    chat_type=[types.ChatType.PRIVATE],
+    state=FSM.allow_edit_org_step_user
+)
+async def allow_edit_org_step_user(self: types.Message, state: FSMContext):
+    try:
+        logger.info("allow_edit_org_step_user")
+        for i in self.text.split('\n'):
+            logins.append(i)
+        await FSM.allow_edit_org_step_app.set()
+        await self.answer(f'Enter what to allow')
+
+    except(Exception,):
+        result = f'{allow_edit_org_step_user.__name__}, something get wrong!'
+        logger.info(result)
+        await self.reply(result)
+
+
+@dp.message_handler(
+    user_id=admin,
+    chat_type=[types.ChatType.PRIVATE],
+    state=FSM.allow_edit_org_step_app
+)
+async def allow_edit_org_step_app(self: types.Message, state: FSMContext):
+    try:
+        logger.info("allow_edit_org_step_app")
+        for i in self.text.split('\n'):
+            bundles.append(i)
+        result = capi.a_edit_org(logins, bundles)
+        logins.clear()
+        bundles.clear()
+        await FSM.primary.set()
+        if result.ok:
+            await self.reply(f'Response code {result.status_code}, successful.')
+            with open("test.txt", "w", encoding="utf-8") as file:
+                file.write(result.text)
+        else:
+            await self.reply(f'Response code {result.status_code}, unsuccessful!')
+
+    except(Exception,):
+        out = f'{allow_edit_org_step_app.__name__}, something get wrong!\n' \
+              f'Raised "{Exception}" error!'
+        logger.info(out)
+        await self.reply(out)
 
 
 @dp.message_handler(
