@@ -69,7 +69,15 @@ def del_user(logins):
 
 
 def add_sub(login, source, sub):
-    pass
+    data = {
+        "add_new_stream": "Добавить",
+        "keitaro[]": login,
+        "source[]": source,
+        "stream[]": sub
+    }
+
+    result = requests.post(URL, data=data, headers=HEADER)
+    return result
 
 
 def add_camp(login, bundle, sub):

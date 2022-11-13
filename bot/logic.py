@@ -28,9 +28,9 @@ class FSM(StatesGroup):
     del_user_step_user = State()
 
     """Add user sub logic"""
-    add_sub_step_user = State()
-    add_sub_step_source = State()
-    add_sub_step_sub = State()
+    add_sub_step_user = State()  #
+    add_sub_step_source = State()  #
+    add_sub_step_sub = State()  #
 
     """Add user campaign logic"""
     add_camp_step_user = State()
@@ -42,7 +42,7 @@ class FSM(StatesGroup):
     open_org_step_app = State()  #
 
     """Close organic logic"""
-    close_org_step_user = State()  #[
+    close_org_step_user = State()  #
     close_org_step_app = State()  #
 
     "Allow organic edit logic"
@@ -77,6 +77,8 @@ keyboard.add(help_key)
 
 
 logins = []
+sources = []
+subs = []
 bundles = []
 
 
@@ -96,7 +98,8 @@ async def process_callback_commands(callback_query: types.CallbackQuery):
         await bot.answer_callback_query(callback_query.id, text='Not implemented yet!', show_alert=True)
 
     elif code == '/add_sub':
-        await bot.answer_callback_query(callback_query.id, text='Not implemented yet!', show_alert=True)
+        await FSM.add_sub_step_user.set()
+        await bot.send_message(callback_query.from_user.id, text="Enter to whom to add")
 
     elif code == '/add_camp':
         await bot.answer_callback_query(callback_query.id, text='Not implemented yet!', show_alert=True)
@@ -131,6 +134,76 @@ async def process_callback_commands(callback_query: types.CallbackQuery):
 
 
 """====================    Bot control layer     ===================="""
+
+
+@dp.message_handler(
+        user_id=admin,
+        chat_type=[types.ChatType.PRIVATE],
+        state=FSM.add_sub_step_user
+)
+async def add_sub_step_user(self: types.Message, state: FSMContext):
+
+    try:
+        logger.info("add_sub_step_user")
+        for i in self.text.split('\n'):
+            logins.append(i)
+        await FSM.add_sub_step_source.set()
+        await self.answer(f'Enter source for target sub')
+
+    except(Exception,):
+        result = f'add_sub_step_user, something get wrong!'
+        logger.info(result)
+        await self.reply(result)
+
+
+@dp.message_handler(
+        user_id=admin,
+        chat_type=[types.ChatType.PRIVATE],
+        state=FSM.add_sub_step_source
+)
+async def add_sub_step_source(self: types.Message, state: FSMContext):
+
+    try:
+        logger.info("add_sub_step_source")
+        for i in self.text.split('\n'):
+            sources.append(i)
+        await FSM.add_sub_step_sub.set()
+        await self.answer(f'Enter sub numbers')
+
+    except(Exception,):
+        result = f'add_sub_step_source, something get wrong!'
+        logger.info(result)
+        await self.reply(result)
+
+
+@dp.message_handler(
+    user_id=admin,
+    chat_type=[types.ChatType.PRIVATE],
+    state=FSM.add_sub_step_sub
+)
+async def add_sub_step_sub(self: types.Message, state: FSMContext):
+
+    try:
+        logger.info("add_sub_step_sub")
+        for i in self.text.split('\n'):
+            subs.append(i)
+        result = capi.add_sub(logins, sources, subs)
+        logins.clear()
+        sources.clear()
+        subs.clear()
+        await FSM.primary.set()
+        if result.ok:
+            await self.reply(f'Response code {result.status_code}, successful.')
+            with open("test.txt", "w", encoding="utf-8") as file:
+                file.write(result.text)
+        else:
+            await self.reply(f'Response code {result.status_code}, unsuccessful!')
+
+    except(Exception,):
+        out = f'add_sub_step_sub, something get wrong!\n' \
+                 f'Raised "{Exception}" error!'
+        logger.info(out)
+        await self.reply(out)
 
 
 @dp.message_handler(
