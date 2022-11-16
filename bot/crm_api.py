@@ -13,7 +13,7 @@ HEADER = {
 THEADER = {"Api-Key": cfg.API_TOKEN}
 
 
-def get_user_id(logins):
+def get_user_id(logins):  # Find and get user id by login
     get_users_url = cfg.GET_USERS_API
     response = requests.get(get_users_url)
     userdict = {item['id']: item for item in response.json()}
@@ -28,7 +28,7 @@ def get_user_id(logins):
     return result
 
 
-def get_campaign_id(bundles):
+def get_campaign_id(bundles):  # Get campaign id by bundle
     get_bundles_url = cfg.GET_BUNDLES_API
     response = requests.get(get_bundles_url)
     bundledict = {item['id']: item for item in response.json()}
@@ -44,7 +44,7 @@ def get_campaign_id(bundles):
     return result
 
 
-def get_app_id(bundles):
+def get_app_id(bundles):  # Get app id by bundle
     get_apps_url = cfg.DOMAIN
     response = requests.get(f'{get_apps_url}traffic_sources', headers=THEADER)
     appsdict = {item['id']: item for item in response.json()}
@@ -58,6 +58,14 @@ def get_app_id(bundles):
 
     result = {'response': response, 'data': data}
     return result
+
+
+def get_last_open_sub():  # Get last opened sub number
+    pass
+
+
+def get_result():  # Get result after execute commands from end of page
+    pass
 
 
 def add_user(login, source, sub, lead):
