@@ -6,3 +6,5 @@ logs/
 test*
 __pycache__
 nohup.out
+*.bash
+*.sh
