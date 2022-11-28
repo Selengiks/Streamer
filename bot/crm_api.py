@@ -13,6 +13,15 @@ HEADER = {
 THEADER = {"Api-Key": cfg.API_TOKEN}
 
 
+def get_users():
+    get_users_url = cfg.GET_USERS_API
+    response = requests.get(get_users_url)
+    userdict = {item['id']: item for item in response.json()}
+
+    result = {'response': response, 'data': userdict}
+    return result
+
+
 def get_user_id(logins):  # Find and get user id by login
     get_users_url = cfg.GET_USERS_API
     response = requests.get(get_users_url)
