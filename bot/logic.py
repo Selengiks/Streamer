@@ -51,8 +51,8 @@ class FSM(StatesGroup):
     allow_edit_org_step_user = State()  #
     allow_edit_org_step_app = State()  #
 
-    """Check user visibility logic"""
-    check_user_visib_step_user = State()
+    """Add visibility for financier"""
+    open_fin_visib_step_app = State()  #
 
     temp_state = State()
 
@@ -68,10 +68,10 @@ close_org_key = InlineKeyboardButton('Close organic', callback_data='/close_org'
 allow_org_edit_key = InlineKeyboardButton('Accept organic edit', callback_data='/a_org_edit')
 open_camp_visib_key = InlineKeyboardButton('Open campaign visibility', callback_data='/o_camp_vis')
 close_camp_visib_key = InlineKeyboardButton('Close campaign visibility', callback_data='/c_camp_vis')
-check_user_visib_key = InlineKeyboardButton('Check user visibility', callback_data='/check_user_vis')
+open_fin_visib_key = InlineKeyboardButton('Add for financier visibility', callback_data='/open_fin_vis')
 keyboard = InlineKeyboardMarkup(row_width=2).add(add_user_key, del_user_key, add_user_sub_key, add_user_camp_key,
                                                  open_org_key, close_org_key, allow_org_edit_key, open_camp_visib_key,
-                                                 close_camp_visib_key, check_user_visib_key)
+                                                 close_camp_visib_key, open_fin_visib_key)
 
 help_key = InlineKeyboardButton('Help', callback_data='/help')
 keyboard.add(help_key)
@@ -167,8 +167,9 @@ async def process_callback_commands(callback_query: types.CallbackQuery):
     elif code == '/c_camp_vis':
         await bot.answer_callback_query(callback_query.id, text='Not implemented yet!', show_alert=True)
 
-    elif code == '/check_user_vis':
-        await bot.answer_callback_query(callback_query.id, text='Not implemented yet!', show_alert=True)
+    elif code == '/open_fin_vis':
+        await FSM.open_fin_visib_step_app.set()
+        await bot.send_message(callback_query.from_user.id, text="Enter app bundle to open")
 
     elif code == '/help':
         await bot.answer_callback_query(callback_query.id, text='/help')
@@ -179,6 +180,22 @@ async def process_callback_commands(callback_query: types.CallbackQuery):
 
 
 """====================    Bot control layer     ===================="""
+
+
+@dp.message_handler(
+    state='*',
+    commands='cancel',
+    user_id=admin
+)
+async def cancel_handler(message: types.Message, state: FSMContext):
+    current_state = await state.get_state()
+    if current_state is None:
+        return
+
+    logger.debug(f'/cancel executed. Return to primary state')
+    await FSM.primary.set()
+    await message.reply('Cancelled.', reply_markup=types.ReplyKeyboardRemove())
+    await main_menu(message)
 
 
 @dp.message_handler(
@@ -252,8 +269,7 @@ async def add_sub_step_sub(self: types.Message, state: FSMContext):
         await FSM.primary.set()
         if result.ok:
             await self.reply(f'Operation done')
-            with open("test.txt", "w", encoding="utf-8") as file:
-                file.write(result.text)
+
         else:
             await self.reply(f'Response code {result.status_code}, unsuccessful!')
 
@@ -261,6 +277,9 @@ async def add_sub_step_sub(self: types.Message, state: FSMContext):
         out = f'add_sub_step_sub, something get wrong!\n Raised "{str(e)}" error!'
         logger.info(out)
         await self.reply(out)
+
+    finally:
+        await main_menu(self)
 
 
 @dp.message_handler(
@@ -296,8 +315,7 @@ async def open_org_step_app(self: types.Message, state: FSMContext):
         await FSM.primary.set()
         if result.ok:
             await self.reply(f'Operation done')
-            with open("test.txt", "w", encoding="utf-8") as file:
-                file.write(result.text)
+
         else:
             await self.reply(f'Response code {result.status_code}, unsuccessful!')
 
@@ -305,6 +323,9 @@ async def open_org_step_app(self: types.Message, state: FSMContext):
         out = f'open_org_step_app, something get wrong!\n Raised "{str(e)}" error!'
         logger.info(out)
         await self.reply(out)
+
+    finally:
+        await main_menu(self)
 
 
 @dp.message_handler(
@@ -341,8 +362,7 @@ async def close_org_step_app(self: types.Message, state: FSMContext):
         await FSM.primary.set()
         if result.ok:
             await self.reply(f'Operation done')
-            with open("test.txt", "w", encoding="utf-8") as file:
-                file.write(result.text)
+
         else:
             await self.reply(f'Response code {result.status_code}, unsuccessful!')
 
@@ -350,6 +370,9 @@ async def close_org_step_app(self: types.Message, state: FSMContext):
         out = f'close_org_step_app, something get wrong!\n Raised "{str(e)}" error!'
         logger.info(out)
         await self.reply(out)
+
+    finally:
+        await main_menu(self)
 
 
 @dp.message_handler(
@@ -386,8 +409,7 @@ async def allow_edit_org_step_app(self: types.Message, state: FSMContext):
         await FSM.primary.set()
         if result.ok:
             await self.reply(f'Operation done')
-            with open("test.txt", "w", encoding="utf-8") as file:
-                file.write(result.text)
+
         else:
             await self.reply(f'Response code {result.status_code}, unsuccessful!')
 
@@ -395,6 +417,36 @@ async def allow_edit_org_step_app(self: types.Message, state: FSMContext):
         out = f'allow_edit_org_step_app, something get wrong!\n Raised "{str(e)}" error!'
         logger.info(out)
         await self.reply(out)
+
+    finally:
+        await main_menu(self)
+
+
+@dp.message_handler(
+    user_id=admin,
+    chat_type=[types.ChatType.PRIVATE],
+    state=FSM.open_fin_visib_step_app
+)
+async def open_fin_visib_step_app(self: types.Message, state: FSMContext):
+    try:
+        logger.info("open_fin_visib_step_app")
+        bundles.append(self.text)
+        result = capi.open_fin_visibility(bundles)
+        bundles.clear()
+        await FSM.primary.set()
+        if result['response'].ok:
+            await self.reply(f'Operation done')
+
+        else:
+            await self.reply(f'Response code {result.status_code}, unsuccessful!')
+
+    except Exception as e:
+        out = f'open_fin_visib_step_app, something get wrong!\n Raised "{str(e)}" error!'
+        logger.info(out)
+        await self.reply(out)
+
+    finally:
+        await main_menu(self)
 
 
 @dp.message_handler(
@@ -410,21 +462,6 @@ async def main_menu(message: types.Message):
     result = f'{botinfo.full_name} [{md.hcode(f"@{botinfo.username}")}] on line!'
     logger.info(result)
     await message.reply(result, reply_markup=keyboard)
-
-
-@dp.message_handler(
-    state='*',
-    commands='cancel',
-    user_id=admin
-)
-async def cancel_handler(message: types.Message, state: FSMContext):
-    current_state = await state.get_state()
-    if current_state is None:
-        return
-
-    logger.debug(f'/cancel executed. Return to primary state')
-    await FSM.primary.set()
-    await message.reply('Cancelled.', reply_markup=types.ReplyKeyboardRemove())
 
 
 @dp.message_handler(

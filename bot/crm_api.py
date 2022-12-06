@@ -1,13 +1,11 @@
-import json
-from collections import OrderedDict
-
 import requests
-from loguru import logger
 import config as cfg
 
 URL = cfg.SCRIPT_API
 HEADER = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/106.0.0.0 Safari/537.36 OPR/92.0.0.0",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                      "AppleWebKit/537.36 (KHTML, like Gecko) "
+                      "Chrome/106.0.0.0 Safari/537.36 OPR/92.0.0.0",
         "Content-Type": "application/x-www-form-urlencoded",
     }
 THEADER = {"Api-Key": cfg.API_TOKEN}
@@ -42,20 +40,22 @@ def get_campaign_id(bundles):  # Get campaign id by bundle
     response = requests.get(get_bundles_url)
     bundledict = {item['id']: item for item in response.json()}
     data = []
+    camp = []
 
     for k, v in bundledict.items():
         for i in bundles:
 
             if f'ORG {i}' in v['name']:
                 data.append(v['id'])
+                camp.append(v)
 
-    result = {'response': response, 'data': data}
+    result = {'response': response, 'data': data, 'campaign': camp}
     return result
 
 
 def get_app_id(bundles):  # Get app id by bundle
     get_apps_url = cfg.DOMAIN
-    response = requests.get(f'{get_apps_url}traffic_sources', headers=THEADER)
+    response = requests.get(f'{get_apps_url}/traffic_sources', headers=THEADER)
     appsdict = {item['id']: item for item in response.json()}
     data = []
 
@@ -64,6 +64,21 @@ def get_app_id(bundles):  # Get app id by bundle
 
             if i in v['name']:
                 data.append(v['id'])
+
+    result = {'response': response, 'data': data}
+    return result
+
+
+def get_group_id(key):  # Get group id by search key
+    get_groups_url = cfg.DOMAIN
+    response = requests.get(f'{get_groups_url}/groups?type=campaigns', headers=THEADER)
+    groupsdict = {item['id']: item for item in response.json()}
+    data = {}
+
+    for k, v in groupsdict.items():
+        if key in v['name']:
+            data['id'] = v['id']
+            data['name'] = v['name']
 
     result = {'response': response, 'data': data}
     return result
@@ -134,5 +149,14 @@ def a_edit_org(logins, bundles):
     return result
 
 
-def check_visibility(login):
-    pass
+def open_fin_visibility(bundle):
+    campaign = get_campaign_id(bundle)
+    get_apps_url = cfg.DOMAIN
+    data = campaign['campaign'][0]
+    data |= {
+        "group_id": get_group_id('TB_UAC_ORG')['data']['id']
+    }
+    response = requests.put(f'{get_apps_url}/campaigns/{campaign["data"][0]}', headers=THEADER, data=data)
+
+    result = {'response': response, 'data': response.json()}
+    return result
