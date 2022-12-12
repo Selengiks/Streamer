@@ -1,7 +1,7 @@
 import requests
 import config as cfg
 
-URL = cfg.SCRIPT_API
+URL = cfg.KEITARO_FORM
 HEADER = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                       "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -12,50 +12,42 @@ THEADER = {"Api-Key": cfg.API_TOKEN}
 
 
 def get_users():
-    get_users_url = cfg.GET_USERS_API
-    response = requests.get(get_users_url)
+    response = requests.get(cfg.ALL_USERS_PAGE)
     userdict = {item['id']: item for item in response.json()}
 
     result = {'response': response, 'data': userdict}
     return result
 
 
-def get_user_id(logins):  # Find and get user id by login
-    get_users_url = cfg.GET_USERS_API
-    response = requests.get(get_users_url)
-    userdict = {item['id']: item for item in response.json()}
-    data = []
+def get_user(logins):  # Find and get users by login
+    response = requests.get(cfg.ALL_USERS_PAGE)
+    data = {}
 
-    for k, v in userdict.items():
+    for k, v in get_users()['data'].items():
         for i in logins:
             if i == v['login']:
-                data.append(v['id'])
+                data[k] = v
 
     result = {'response': response, 'data': data}
     return result
 
 
-def get_campaign_id(bundles):  # Get campaign id by bundle
-    get_bundles_url = cfg.GET_BUNDLES_API
-    response = requests.get(get_bundles_url)
+def get_campaign(values):  # Get campaigns by bundles
+    response = requests.get(cfg.ALL_CAMPAIGNS_PAGE)
     bundledict = {item['id']: item for item in response.json()}
-    data = []
-    camp = []
+    data = {}
 
     for k, v in bundledict.items():
-        for i in bundles:
+        for i in values:
+            if i in v['name']:
+                data[k] = v
 
-            if f'ORG {i}' in v['name']:
-                data.append(v['id'])
-                camp.append(v)
-
-    result = {'response': response, 'data': data, 'campaign': camp}
+    result = {'response': response, 'data': data}
     return result
 
 
 def get_app_id(bundles):  # Get app id by bundle
-    get_apps_url = cfg.DOMAIN
-    response = requests.get(f'{get_apps_url}/traffic_sources', headers=THEADER)
+    response = requests.get(f'{cfg.DOMAIN}/traffic_sources', headers=THEADER)
     appsdict = {item['id']: item for item in response.json()}
     data = []
 
@@ -63,15 +55,14 @@ def get_app_id(bundles):  # Get app id by bundle
         for i in bundles:
 
             if i in v['name']:
-                data.append(v['id'])
+                data[k] = v
 
     result = {'response': response, 'data': data}
     return result
 
 
 def get_group_id(key):  # Get group id by search key
-    get_groups_url = cfg.DOMAIN
-    response = requests.get(f'{get_groups_url}/groups?type=campaigns', headers=THEADER)
+    response = requests.get(f'{cfg.DOMAIN}/groups?type=campaigns', headers=THEADER)
     groupsdict = {item['id']: item for item in response.json()}
     data = {}
 
@@ -117,10 +108,12 @@ def add_camp(login, bundle, sub):
 
 
 def open_org(logins, bundles):
+    campaigns = get_campaign([f'ORG {i}'for i in bundles])['data']
+    users = get_user(logins)['data']
     data = {
         "add_specific_visibility": "Готово",
-        "campaigns[]": get_campaign_id(bundles).get('data'),
-        "keitaro_master[]": get_user_id(logins).get('data')
+        "campaigns[]": [campaigns[i]['name'] for i in campaigns],
+        "keitaro_master[]": [users[i]['id'] for i in users]
     }
 
     result = requests.post(URL, data=data, headers=HEADER)
@@ -128,10 +121,12 @@ def open_org(logins, bundles):
 
 
 def close_org(logins, bundles):
+    campaigns = get_campaign([f'ORG {i}' for i in bundles])['data']
+    users = get_user(logins)['data']
     data = {
         "delete_specific_visibility": "Готово",
-        "campaigns[]": get_campaign_id(bundles).get('data'),
-        "keitaro_master[]": get_user_id(logins).get('data')
+        "campaigns[]": [campaigns[i]['name'] for i in campaigns],
+        "keitaro_master[]": [users[i]['id'] for i in users]
     }
 
     result = requests.post(URL, data=data, headers=HEADER)
@@ -139,24 +134,24 @@ def close_org(logins, bundles):
 
 
 def a_edit_org(logins, bundles):
+    users = get_user(logins)['data']
     data = {
         "allow_edit_organic": "",
         "app[]": get_app_id(bundles).get('data'),
-        "keitaro": get_user_id(logins).get('data')
+        "keitaro": [users[i]['id'] for i in users]
     }
 
     result = requests.post(URL, data=data, headers=HEADER)
     return result
 
 
-def open_fin_visibility(bundle):
-    campaign = get_campaign_id(bundle)
-    get_apps_url = cfg.DOMAIN
+def open_fin_visibility(bundles):
+    campaign = get_campaign(bundles)
     data = campaign['campaign'][0]
     data |= {
         "group_id": get_group_id('TB_UAC_ORG')['data']['id']
     }
-    response = requests.put(f'{get_apps_url}/campaigns/{campaign["data"][0]}', headers=THEADER, data=data)
+    response = requests.put(f'{cfg.DOMAIN}/campaigns/{campaign["data"][0]}', headers=THEADER, data=data)
 
     result = {'response': response, 'data': response.json()}
     return result

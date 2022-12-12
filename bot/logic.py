@@ -3,116 +3,13 @@ from aiogram import md, types
 from loguru import logger
 from support.bots import dp, bot
 from aiogram.dispatcher import FSMContext
-from aiogram.dispatcher.filters.state import State, StatesGroup
-from aiogram.utils.callback_data import CallbackData
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-import bot.crm_api as capi
+from bot import crm_api as capi, FSM as fsm, keyboard as kb
 
 logger.debug("Bot commands module loaded")
 
 admin = cfg.admins
 
-"""====================    FSM     ===================="""
-
-
-class FSM(StatesGroup):
-    primary = State()  # main state of the bot
-
-    find_user = State()
-
-    """Add user logic"""
-    add_user_step_user = State()
-    add_user_step_source = State()
-    add_user_step_sub = State()
-    add_user_step_teamlead = State()
-
-    """Delete user logic"""
-    del_user_step_user = State()
-
-    """Add user sub logic"""
-    add_sub_step_user = State()  #
-    add_sub_step_source = State()  #
-    add_sub_step_sub = State()  #
-
-    """Add user campaign logic"""
-    add_camp_step_user = State()
-    add_camp_step_app = State()
-    add_camp_step_sub = State()
-
-    """Open organic logic"""
-    open_org_step_user = State()  #
-    open_org_step_app = State()  #
-
-    """Close organic logic"""
-    close_org_step_user = State()  #
-    close_org_step_app = State()  #
-
-    "Allow organic edit logic"
-    allow_edit_org_step_user = State()  #
-    allow_edit_org_step_app = State()  #
-
-    """Add visibility for financier"""
-    open_fin_visib_step_app = State()  #
-
-    temp_state = State()
-
-
-"""====================    MENU Keyboard     ===================="""
-
-add_user_key = InlineKeyboardButton('Add user', callback_data='/add_user')
-del_user_key = InlineKeyboardButton('Delete user', callback_data='/del_user')
-add_user_sub_key = InlineKeyboardButton('Add user sub', callback_data='/add_sub')
-add_user_camp_key = InlineKeyboardButton('Add user campaign', callback_data='/add_camp')
-open_org_key = InlineKeyboardButton('Open organic', callback_data='/open_org')
-close_org_key = InlineKeyboardButton('Close organic', callback_data='/close_org')
-allow_org_edit_key = InlineKeyboardButton('Accept organic edit', callback_data='/a_org_edit')
-open_camp_visib_key = InlineKeyboardButton('Open campaign visibility', callback_data='/o_camp_vis')
-close_camp_visib_key = InlineKeyboardButton('Close campaign visibility', callback_data='/c_camp_vis')
-open_fin_visib_key = InlineKeyboardButton('Add for financier visibility', callback_data='/open_fin_vis')
-keyboard = InlineKeyboardMarkup(row_width=2).add(add_user_key, del_user_key, add_user_sub_key, add_user_camp_key,
-                                                 open_org_key, close_org_key, allow_org_edit_key, open_camp_visib_key,
-                                                 close_camp_visib_key, open_fin_visib_key)
-
-help_key = InlineKeyboardButton('Help', callback_data='/help')
-keyboard.add(help_key)
-
-"""====================    Userlist keyboard     ===================="""
-
-
-def user_search(name_to_search: str):
-    userdata = capi.get_users().get("data")
-    users = {}
-    for v in userdata.values():
-        users[v["id"]] = {"user": v["login"]}
-
-    data = []
-    for k, v in users.items():
-        data.append(v['user'])
-    if result := tuple(app_name for app_name in data if name_to_search.lower() in app_name.lower()):
-        return result
-
-    else:
-        def is_any_serched_word_in_string(string: str):
-            return any(True for word in name_to_search.lower().split() if word in string.lower())
-
-        return tuple(filter(is_any_serched_word_in_string, data))
-
-
-users_cb = CallbackData('user', 'id', 'action')  # user:<id>:<action>   -> types.InlineKeyboardMarkup
-
-
-def get_users_list(user):
-    users = user_search(user)
-    markup = types.InlineKeyboardMarkup()
-    count = 1
-    for i in users:
-        markup.add(
-            types.InlineKeyboardButton(
-                i,
-                callback_data=users_cb.new(id=i, action='choose')),
-        )
-        count += 1
-    return markup
+FSM = fsm.FSM()
 
 
 """====================    Main body     ===================="""
@@ -199,14 +96,41 @@ async def cancel_handler(message: types.Message, state: FSMContext):
 
 
 @dp.message_handler(
+    chat_type=[types.ChatType.PRIVATE],
+    state="*",
+    commands="start",
+    user_id=admin
+)
+async def main_menu(message: types.Message):
+    await FSM.primary.set()
+    kb.get_users_list(message.text)
+    botinfo = await dp.bot.me
+    result = f'{botinfo.full_name} [{md.hcode(f"@{botinfo.username}")}] on line!'
+    logger.info(result)
+    await message.reply(result, reply_markup=kb.keyboard)
+
+
+@dp.message_handler(
+    user_id=admin,
+    chat_type=[types.ChatType.PRIVATE],
+    state="*",
+    commands="help"
+)
+async def help(self: types.Message):
+    result = f"HELP"
+    logger.info(result)
+    await self.answer(result)
+
+
+@dp.message_handler(
     user_id=admin,
     chat_type=[types.ChatType.PRIVATE],
     state=FSM.find_user
 )
-async def find_user(self: types.Message, state: FSMContext):
+async def find_user(self: types.Message):
     try:
         logger.info("find_user")
-        await self.reply('Type again one of the names you are looking for:\n', reply_markup=get_users_list(self.text))
+        await self.reply('Finded users, type manual, buttons inactive:\n', reply_markup=kb.get_users_list(self.text))
         await FSM.temp_state.set()
 
     except Exception as e:
@@ -220,7 +144,7 @@ async def find_user(self: types.Message, state: FSMContext):
     chat_type=[types.ChatType.PRIVATE],
     state=FSM.add_sub_step_user
 )
-async def add_sub_step_user(self: types.Message, state: FSMContext):
+async def add_sub_step_user(self: types.Message):
     try:
         logger.info("add_sub_step_user")
         logins.append(self.text)
@@ -238,7 +162,7 @@ async def add_sub_step_user(self: types.Message, state: FSMContext):
     chat_type=[types.ChatType.PRIVATE],
     state=FSM.add_sub_step_source
 )
-async def add_sub_step_source(self: types.Message, state: FSMContext):
+async def add_sub_step_source(self: types.Message):
     try:
         logger.info("add_sub_step_source")
         for i in self.text.split('\n'):
@@ -257,7 +181,7 @@ async def add_sub_step_source(self: types.Message, state: FSMContext):
     chat_type=[types.ChatType.PRIVATE],
     state=FSM.add_sub_step_sub
 )
-async def add_sub_step_sub(self: types.Message, state: FSMContext):
+async def add_sub_step_sub(self: types.Message):
     try:
         logger.info("add_sub_step_sub")
         for i in self.text.split('\n'):
@@ -287,7 +211,7 @@ async def add_sub_step_sub(self: types.Message, state: FSMContext):
     chat_type=[types.ChatType.PRIVATE],
     state=FSM.open_org_step_user
 )
-async def open_org_step_user(self: types.Message, state: FSMContext):
+async def open_org_step_user(self: types.Message):
     try:
         logins.append(self.text)
         await FSM.open_org_step_app.set()
@@ -304,7 +228,7 @@ async def open_org_step_user(self: types.Message, state: FSMContext):
     chat_type=[types.ChatType.PRIVATE],
     state=FSM.open_org_step_app
 )
-async def open_org_step_app(self: types.Message, state: FSMContext):
+async def open_org_step_app(self: types.Message):
     try:
         logger.info("open_org_step_app")
         for i in self.text.split('\n'):
@@ -333,7 +257,7 @@ async def open_org_step_app(self: types.Message, state: FSMContext):
     chat_type=[types.ChatType.PRIVATE],
     state=FSM.close_org_step_user
 )
-async def close_org_step_user(self: types.Message, state: FSMContext):
+async def close_org_step_user(self: types.Message):
     try:
         logger.info("close_org_step_user")
         logins.append(self.text)
@@ -351,7 +275,7 @@ async def close_org_step_user(self: types.Message, state: FSMContext):
     chat_type=[types.ChatType.PRIVATE],
     state=FSM.close_org_step_app
 )
-async def close_org_step_app(self: types.Message, state: FSMContext):
+async def close_org_step_app(self: types.Message):
     try:
         logger.info("close_org_step_app")
         for i in self.text.split('\n'):
@@ -380,7 +304,7 @@ async def close_org_step_app(self: types.Message, state: FSMContext):
     chat_type=[types.ChatType.PRIVATE],
     state=FSM.allow_edit_org_step_user
 )
-async def allow_edit_org_step_user(self: types.Message, state: FSMContext):
+async def allow_edit_org_step_user(self: types.Message):
     try:
         logger.info("allow_edit_org_step_user")
         logins.append(self.text)
@@ -398,7 +322,7 @@ async def allow_edit_org_step_user(self: types.Message, state: FSMContext):
     chat_type=[types.ChatType.PRIVATE],
     state=FSM.allow_edit_org_step_app
 )
-async def allow_edit_org_step_app(self: types.Message, state: FSMContext):
+async def allow_edit_org_step_app(self: types.Message):
     try:
         logger.info("allow_edit_org_step_app")
         for i in self.text.split('\n'):
@@ -427,7 +351,7 @@ async def allow_edit_org_step_app(self: types.Message, state: FSMContext):
     chat_type=[types.ChatType.PRIVATE],
     state=FSM.open_fin_visib_step_app
 )
-async def open_fin_visib_step_app(self: types.Message, state: FSMContext):
+async def open_fin_visib_step_app(self: types.Message):
     try:
         logger.info("open_fin_visib_step_app")
         bundles.append(self.text)
@@ -451,33 +375,6 @@ async def open_fin_visib_step_app(self: types.Message, state: FSMContext):
 
 @dp.message_handler(
     chat_type=[types.ChatType.PRIVATE],
-    state="*",
-    commands="start",
-    user_id=admin
-)
-async def main_menu(message: types.Message):
-    await FSM.primary.set()
-    get_users_list(message.text)
-    botinfo = await dp.bot.me
-    result = f'{botinfo.full_name} [{md.hcode(f"@{botinfo.username}")}] on line!'
-    logger.info(result)
-    await message.reply(result, reply_markup=keyboard)
-
-
-@dp.message_handler(
-    user_id=admin,
-    chat_type=[types.ChatType.PRIVATE],
-    state="*",
-    commands="help"
-)
-async def help(self: types.Message):
-    result = f"HELP"
-    logger.info(result)
-    await self.answer(result)
-
-
-@dp.message_handler(
-    chat_type=[types.ChatType.PRIVATE],
     state=FSM.primary,
     commands="sukablyatebuchayaklava"
 )
@@ -493,7 +390,7 @@ async def del_keyb(message: types.Message):
     commands="test"
 )
 async def test(message: types.Message):
-    result = user_search(message.text.split(" ")[1])
+    result = kb.user_search(message.text.split(" ")[1])
     await message.answer(' '.join(result))
 
 

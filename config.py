@@ -2,15 +2,16 @@ from loguru import logger
 from support import loggeru
 import config_data_priv
 
-loggeru.start()
+DEBUG = 1  # 1 - Enable DEBUG output, 0 - disable DEBUG output
+loggeru.start(DEBUG)
 
 logger.debug("Bot connection establish")
 
 TOKEN = config_data_priv.BOT_TOKEN
 DOMAIN = config_data_priv.DOMAIN
-SCRIPT_API = config_data_priv.SCRIPT_API
-GET_USERS_API = config_data_priv.GET_USERS_API
-GET_BUNDLES_API = config_data_priv.GET_BUNDLES_API
+KEITARO_FORM = config_data_priv.SCRIPT_API
+ALL_USERS_PAGE = config_data_priv.ALL_USERS
+ALL_CAMPAIGNS_PAGE = config_data_priv.ALL_CAMPAIGNS
 API_TOKEN = config_data_priv.API_KEY
 PROXIES = config_data_priv.PROXIES
 
